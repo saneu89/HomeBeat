@@ -19,7 +19,9 @@ Kein eigener Server, keine Werbung, kein Login, keine Konten. Jedes Handy arbeit
 - Package `app.homebeat.music`, Name „HomeBeat“, Slug `homebeat`.
 - Icons/Splash werden mit `npm run icons` aus `assets/HomeBeat_icon.jpeg` erzeugt (weißen Rand wegschneiden, unverzerrt zentrieren, Adaptive Icon komplett im sicheren 66-%-Kreis).
 - `android/` und `ios/` werden generiert (CNG) – nie von Hand ändern, nur über `app.json` und Config-Plugins.
-- Einstiegsdatei `index.ts` lädt `src/polyfills.ts` **vor** `expo-router/entry`.
+- Einstiegsdatei `index.ts` lädt `src/polyfills.ts`, dann `src/services/playbackSession.ts` (UI-frei!), dann `expo-router/entry`.
+- Player: **@rntp/player** (= react-native-track-player v5). v4.1.2 baut unter RN 0.88/New Architecture nicht mehr (Kotlin-/Bridgeless-Fehler, Issues ohne Fix geschlossen). v5 ist frei für private, nicht-kommerzielle Nutzung (license.txt). Typen über `paths` in tsconfig auf `lib/typescript` gemappt (Deep-Import im TS-Quellcode).
+- Warteschlange gehört der App (`playerStore`); der native Player bekommt nur aktuellen + nächsten Titel mit frisch aufgelöster URL.
 - Geheimnisse: `src/config/secrets.ts` (in `.gitignore`, wird bei `npm install` aus `secrets.example.ts` angelegt). Fehlt ein Schlüssel, wird die betroffene Quelle **still übersprungen** – die App muss ohne jeden einzelnen Schlüssel funktionieren.
 
 ## Architektur
@@ -54,8 +56,8 @@ npx eas-cli@latest build -p android --profile preview --local  # .apk lokal (Lin
 
 ## Phasen
 
-1. Grundgerüst: Projekt, Branding/Icon, Polyfills, Theme, Navigation (4 Tabs, leere Einstellungen), Datenbank mit Migrationen, Test-Suche über youtubei.js, erster .apk-Build. **← erledigt**
-2. Abspielen: Player, StreamResolver, YouTube Music + Ausweichwege, Mini-/Vollbild-Player, Hintergrundwiedergabe.
+1. Grundgerüst: Projekt, Branding/Icon, Polyfills, Theme, Navigation (4 Tabs, leere Einstellungen), Datenbank mit Migrationen, Test-Suche über youtubei.js, erster .apk-Build. **← erledigt (auf Handy getestet)**
+2. Abspielen: Player, StreamResolver, YouTube Music + Ausweichwege, Mini-/Vollbild-Player, Hintergrundwiedergabe. **← erledigt**
 3. Alle Quellen: übrige Provider, AggregatorService (Zusammenfassen, Rangfolge), Such-Filter nach Inhaltsart, Radio-Tab.
 4. Bibliothek: Playlists, Favoriten, Import (Spotify-Export, CSV), Sichern/Wiederherstellen.
 5. Offline: DownloadService (Warteschlange, Tempolimit, WLAN-Regel, Speicherverwaltung).
@@ -66,10 +68,9 @@ npx eas-cli@latest build -p android --profile preview --local  # .apk lokal (Lin
 
 ## Offene Punkte
 
-- youtubei.js auf echtem Gerät prüfen: Test-Suche und Stream-Test im Tab „Suche“ (Phase 1, braucht ersten Build).
-- **YouTube-Streams (Risiko für Phase 2):** Test am 23.11.2026 vom Entwicklungsrechner (Node): Suche ok, aber
-  `getInfo` liefert bei allen Clients (YTMUSIC, IOS, ANDROID_VR, TV, …) `LOGIN_REQUIRED` „Bitte melde dich an“
-  (Bot-Schutz) → keine Stream-URLs. Ob das vom Handy (andere IP) auch passiert, zeigt der Stream-Test.
-  Mögliche Wege für Phase 2: PO-Token (BotGuard) per unsichtbarer WebView erzeugen, Piped/Invidious-Ausweichweg,
-  Song-Auflösung über JioSaavn/SoundCloud/Audius bevorzugen. Kein Login (Projektregel).
-- Erster .apk-Build: Auf dem Entwicklungsrechner fehlen JDK und Android SDK; Cloud-Build braucht ein (kostenloses) Expo-Konto → muss der Nutzer einmal anstoßen (siehe Zusammenfassung Phase 1).
+- Lizenz @rntp/player: frei nur für „Personal Use“ (private Person, nicht-kommerziell). HomeBeat (privat, kostenlos, Familie/Freunde) sollte darunter fallen – Entscheidung liegt beim Nutzer. Alternative wäre expo-audio (MIT, aber ohne Android Auto).
+- YouTube-Direktabruf: Auf dem Handy funktioniert YTMUSIC (Test 23.11.2026). Vom Entwicklungsrechner liefert YouTube LOGIN_REQUIRED (Bot-Schutz, IP-abhängig). Ohne PO-Token kann YouTube Streams jederzeit sperren → Ausweichwege wichtig.
+- Piped/Invidious (23.11.2026 geprüft): Die meisten Piped-Instanzen der offiziellen Liste sind offline oder selbst von YouTube gesperrt („LOGIN_REQUIRED“); api.invidious.io war vom Entwicklungsrechner nicht erreichbar. Der Ausweichweg ist eingebaut (dynamische Listen, kurze Zeitlimits), bringt derzeit aber wenig. Echte Ausweichquellen kommen in Phase 3 (JioSaavn, SoundCloud, Audius über Künstler-Titel-Abgleich).
+- Vollbild-Player: Download-Schalter (Phase 5), Liedtexte (Phase 7) und Autoplay-Schalter (Phase 7) fehlen noch bewusst.
+- @rntp/player-Cache ist aus: Der Media3-Cache verwendet die URL als Schlüssel, YouTube-URLs ändern sich aber bei jedem Abruf. Klären in Phase 6 („Cache-Größe“).
+- Benachrichtigungs-Symbol: Standard-Symbol von @rntp/player; eigenes Symbol (Config-Plugin mit Drawable) in Phase 9.

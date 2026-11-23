@@ -1,7 +1,9 @@
 import type { YTNodes } from 'youtubei.js';
 
+import { proxyAttempts } from '@/services/streams/proxyInstances';
+import { youtubeDirectAttempts } from '@/services/streams/youtubeStreams';
 import { getInnertube } from '@/services/youtube/innertube';
-import { makeItemId, type ItemType, type UnifiedItem } from '@/types/UnifiedItem';
+import { makeItemId, parseItemId, type ItemType, type UnifiedItem } from '@/types/UnifiedItem';
 
 import type { MusicProvider, SearchOptions } from './MusicProvider';
 
@@ -38,6 +40,7 @@ function mapItem(item: ListItem): UnifiedItem | null {
       ...base,
       id: makeItemId('yt', item.id),
       type: 'track',
+      isOfficial: kind === 'song',
       title: item.title ?? '',
       artist: joinNames(item.artists) || joinNames(item.authors) || item.author?.name || '',
       album: item.album?.name,
@@ -85,7 +88,14 @@ export const youtubeMusicProvider: MusicProvider = {
   id: 'yt',
   name: 'YouTube Music',
   supportedTypes: ['track', 'album', 'artist', 'playlist'],
+  canResolveMatches: true,
   isAvailable: () => true,
+
+  streamAttempts(item, quality) {
+    const { nativeId } = parseItemId(item.id);
+    if (item.type !== 'track' || nativeId.includes(':')) return [];
+    return [...youtubeDirectAttempts(nativeId, quality), ...proxyAttempts(nativeId, quality)];
+  },
 
   async search(query: string, options?: SearchOptions): Promise<UnifiedItem[]> {
     const yt = await getInnertube();

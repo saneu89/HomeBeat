@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
+    "@rntp/player": "^5.13.0",
     "expo": "~58.0.26",
     "expo-constants": "~58.0.16",
     "expo-crypto": "~58.0.8",
@@ -12,6 +13,7 @@
     "expo-haptics": "~58.0.8",
     "expo-image": "~58.0.18",
     "expo-linking": "~58.0.17",
+    "expo-network": "~58.0.5",
     "expo-router": "~58.0.32",
     "expo-splash-screen": "~58.0.14",
     "expo-sqlite": "~58.0.18",

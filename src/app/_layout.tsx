@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { Toast } from '@/components/Toast';
 import { StateView } from '@/components/ui/StateView';
 import { getDb } from '@/database/db';
 import { colors, spacing } from '@/theme/theme';
@@ -45,6 +46,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="player" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
           </Stack>
         ) : state === 'loading' ? (
           <View style={styles.center} />
@@ -53,6 +55,7 @@ export default function RootLayout() {
             <StateView kind="error" title="Datenbank konnte nicht geöffnet werden" message={state.error} onRetry={init} />
           </View>
         )}
+        <Toast />
       </ThemeProvider>
     </SafeAreaProvider>
   );

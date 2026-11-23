@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { StateView } from '@/components/ui/StateView';
 import { TrackCard } from '@/components/ui/TrackCard';
 import { youtubeMusicProvider } from '@/providers/youtubeMusic';
-import { checkYouTubeStream } from '@/services/youtube/streamCheck';
+import { AudioPlayerService } from '@/services/AudioPlayerService';
 import { colors, fonts, radius, spacing } from '@/theme/theme';
-import { parseItemId, SOURCE_BADGE, type UnifiedItem } from '@/types/UnifiedItem';
+import { SOURCE_BADGE, type UnifiedItem } from '@/types/UnifiedItem';
 import { formatDuration } from '@/utils/format';
 
 type SearchState =
@@ -40,7 +40,6 @@ const TYPE_ICON: Record<UnifiedItem['type'], string> = {
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [state, setState] = useState<SearchState>({ kind: 'idle' });
-  const [checkingId, setCheckingId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
@@ -59,13 +58,10 @@ export default function SearchScreen() {
     }
   }, []);
 
-  // Phase 1: Antippen eines Songs prüft, ob sich der Stream auf diesem Gerät ermitteln lässt.
-  const testStream = useCallback(async (item: UnifiedItem) => {
-    if (item.type !== 'track') return;
-    setCheckingId(item.id);
-    const result = await checkYouTubeStream(parseItemId(item.id).nativeId);
-    setCheckingId(null);
-    Alert.alert(result.ok ? 'Stream-Test erfolgreich' : 'Stream-Test fehlgeschlagen', `${item.title}\n\n${result.message}`);
+  /** Antippen eines Songs: alle Songs der Trefferliste ab diesem Song in die Warteschlange. */
+  const play = useCallback((item: UnifiedItem, items: UnifiedItem[]) => {
+    const tracks = items.filter((i) => i.type === 'track');
+    AudioPlayerService.playItems(tracks, Math.max(0, tracks.indexOf(item)));
   }, []);
 
   return (
@@ -84,8 +80,8 @@ export default function SearchScreen() {
           selectionColor={colors.accent}
         />
         <Text style={styles.hint}>
-          Testversion: Die Suche läuft vorerst nur über YouTube Music. Tippe auf einen Song, um zu prüfen, ob der
-          Stream auf diesem Handy abrufbar ist.
+          Die Suche läuft in dieser Testversion vorerst nur über YouTube Music. Weitere Quellen folgen im nächsten
+          Ausbauschritt.
         </Text>
       </View>
 
@@ -125,14 +121,8 @@ export default function SearchScreen() {
               badge={SOURCE_BADGE[item.source]}
               artworkUrl={item.artworkUrl}
               fallbackIcon={TYPE_ICON[item.type]}
-              onPress={item.type === 'track' ? () => testStream(item) : undefined}
-              meta={
-                checkingId === item.id ? (
-                  <ActivityIndicator color={colors.accent} size="small" />
-                ) : (
-                  [item.isExplicit ? 'E' : '', formatDuration(item.durationSec)].filter(Boolean).join(' · ')
-                )
-              }
+              onPress={item.type === 'track' ? () => play(item, state.items) : undefined}
+              meta={[item.isExplicit ? 'E' : '', formatDuration(item.durationSec)].filter(Boolean).join(' · ')}
             />
           )}
         />

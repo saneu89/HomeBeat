@@ -35,6 +35,10 @@ export const colors = {
   logoTile: '#ffffff',
 
   transparent: 'transparent',
+  toast: '#1c1218',
+  toastText: '#ffe4e6',
+  miniPlayer: '#1b1923',
+  playerGlow: 'rgba(225, 29, 72, 0.12)',
   backdrop: 'rgba(5, 6, 9, 0.8)',
   sheet: '#151822',
 } as const;

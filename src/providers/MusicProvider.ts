@@ -1,3 +1,4 @@
+import type { StreamAttempt, StreamQuality } from '@/services/streams/types';
 import type { ItemType, SourceId, UnifiedItem } from '@/types/UnifiedItem';
 
 export interface SearchOptions {
@@ -17,4 +18,11 @@ export interface MusicProvider {
   /** false, wenn z. B. ein benötigter Schlüssel fehlt → Quelle wird still übersprungen. */
   isAvailable(): boolean;
   search(query: string, options?: SearchOptions): Promise<UnifiedItem[]>;
+  /**
+   * Wege, den Stream eines eigenen Eintrags (gleiche Quelle) zu holen – in Reihenfolge.
+   * Fehlt die Methode, liefert die Quelle nur Metadaten (z. B. Deezer).
+   */
+  streamAttempts?(item: UnifiedItem, quality: Exclude<StreamQuality, 'auto'>): StreamAttempt[];
+  /** true = Quelle eignet sich, um Songs ohne eigenen Stream per „Künstler – Titel“ aufzulösen. */
+  readonly canResolveMatches?: boolean;
 }

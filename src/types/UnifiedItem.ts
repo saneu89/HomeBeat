@@ -40,6 +40,8 @@ export interface UnifiedItem {
   source: SourceId;
   isLive: boolean;
   isExplicit: boolean;
+  /** Offizielle Aufnahme (z. B. YT-Music-Song) statt Nutzer-Upload/Video – für die Rangfolge. */
+  isOfficial?: boolean;
   isrc?: string;
   localFileUri?: string;
   bitrateKbps?: number;

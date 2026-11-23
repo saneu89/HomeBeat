@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { StateView } from '@/components/ui/StateView';
 import { TrackCard } from '@/components/ui/TrackCard';
 import { getRecentlyPlayed } from '@/database/libraryRepo';
+import { AudioPlayerService } from '@/services/AudioPlayerService';
 import { spacing } from '@/theme/theme';
 import { SOURCE_BADGE, type UnifiedItem } from '@/types/UnifiedItem';
 import { formatDuration } from '@/utils/format';
@@ -45,7 +46,7 @@ export default function StartScreen() {
           </View>
         ) : (
           <View style={{ gap: spacing.md }}>
-            {recent.items.map((item) => (
+            {recent.items.map((item, i, all) => (
               <TrackCard
                 key={item.id}
                 title={item.title}
@@ -53,6 +54,7 @@ export default function StartScreen() {
                 badge={SOURCE_BADGE[item.source]}
                 artworkUrl={item.artworkUrl}
                 meta={formatDuration(item.durationSec)}
+                onPress={() => AudioPlayerService.playItems(all, i)}
               />
             ))}
           </View>
