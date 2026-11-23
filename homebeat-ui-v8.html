@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HomeBeat UI-Vorschau v8</title>
+  <style>
+    /* Layout: ein Smartphone-Rahmen, 4 Tabs + Mini-Player, Einstellungen als Vollbild-Ebene über dem Zahnrad */
+    :root {
+      --bg: #0c0d12;
+      --card: #161821;
+      --card-hover: #1e212d;
+      --accent: #e11d48;
+      --accent-soft: rgba(225, 29, 72, 0.14);
+      --accent-border: rgba(225, 29, 72, 0.35);
+      --accent-glow: rgba(225, 29, 72, 0.25);
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --border: #252836;
+      --field: #0e1017;
+      --success: #10b981;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font); }
+    html, body { height: 100%; }
+    body {
+      background: radial-gradient(circle at top center, #1b1016 0%, #07080b 65%);
+      background-color: #07080b;
+      color: var(--text); display: flex; justify-content: center; align-items: flex-start;
+      padding: 20px 16px;
+    }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+    .phone {
+      width: 100%; max-width: 414px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 34px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.75), 0 0 40px rgba(225, 29, 72, 0.08);
+      display: flex; flex-direction: column; height: 840px; position: relative;
+    }
+    .status-bar { display: flex; justify-content: space-between; padding: 12px 24px 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .app-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(225, 29, 72, 0.07) 0%, rgba(12, 13, 18, 0.96) 100%);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo {
+      width: 40px; height: 40px; background: #ffffff; border-radius: 11px; padding: 3px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 12px rgba(225, 29, 72, 0.3); border: 1.5px solid var(--accent-border); flex-shrink: 0;
+    }
+    .brand-title { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+    .brand-title span { color: var(--accent); }
+    .icon-btn {
+      width: 38px; height: 38px; border-radius: 50%; background: var(--card); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.15s; color: var(--muted);
+    }
+    .icon-btn:hover { border-color: var(--accent-border); color: #fda4af; background: var(--accent-soft); }
+    .icon-btn svg { width: 19px; height: 19px; }
+
+    .views { flex: 1; overflow-y: auto; padding: 16px 20px 24px; scrollbar-width: none; }
+    .views::-webkit-scrollbar { display: none; }
+    .view { display: none; flex-direction: column; gap: 18px; animation: fadeIn 0.18s ease; }
+    .view.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0.4; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .quick-item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 13px; text-align: left;
+      padding: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: 0.15s;
+    }
+    .quick-item:hover { background: var(--card-hover); border-color: var(--accent-border); }
+
+    .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
+    .section-head h2 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+    .section-head h2::before { content: ""; display: inline-block; width: 3px; height: 15px; background: var(--accent); border-radius: 99px; }
+    .pill-btn {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      font-size: 12px; padding: 6px 12px; border-radius: 999px; cursor: pointer; font-weight: 600; transition: 0.15s;
+    }
+    .pill-btn:hover { border-color: var(--accent-border); background: var(--accent-soft); color: #fda4af; }
+    .pill-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 4px 14px var(--accent-glow); }
+    .pill-btn.primary:hover { background: #be123c; color: #fff; }
+    .pill-btn.danger { color: #fb7185; }
+
+    .card-row { display: flex; flex-direction: column; gap: 9px; }
+    .track-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 13px; width: 100%; text-align: left;
+      padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      transition: 0.15s; cursor: pointer;
+    }
+    .track-card:hover { background: var(--card-hover); border-color: var(--accent-border); }
+    .track-info { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .track-icon {
+      width: 38px; height: 38px; border-radius: 9px; background: #212432; border: 1px solid rgba(255,255,255,0.04);
+      display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0;
+    }
+    .track-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .src {
+      display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.4px; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-right: 4px; vertical-align: 1px;
+    }
+    .live-badge {
+      background: var(--accent-soft); color: #fb7185; border: 1px solid var(--accent-border);
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; flex-shrink: 0;
+    }
+    .meta { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+
+    .search-box {
+      width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 11px 14px; color: var(--text); font-size: 14px; outline: none; transition: 0.15s;
+    }
+    .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .hint { font-size: 11px; color: var(--muted); line-height: 1.45; }
+    .chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+    .chip {
+      background: var(--card); border: 1px solid var(--border); color: var(--muted);
+      font-size: 12px; padding: 5px 11px; border-radius: 999px; white-space: nowrap; cursor: pointer; transition: 0.15s;
+    }
+    .chip:hover { border-color: var(--accent-border); color: var(--text); }
+    .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; box-shadow: 0 2px 10px var(--accent-glow); }
+
+    .mini-player {
+      margin: 0 14px 10px; background: linear-gradient(135deg, #1d1822 0%, #171a26 100%);
+      border: 1px solid var(--accent-border); border-radius: 15px; padding: 10px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 18px rgba(225, 29, 72, 0.12);
+    }
+    .player-controls { display: flex; align-items: center; gap: 8px; }
+    .play-toggle {
+      background: var(--accent); border: none; color: #fff; font-size: 13px; cursor: pointer;
+      width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 10px var(--accent-glow); transition: 0.15s;
+    }
+    .play-toggle:hover { background: #be123c; }
+    .heart-btn { background: transparent; border: none; color: #fb7185; font-size: 16px; cursor: pointer; padding: 4px; }
+    .nav-bar {
+      display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--border);
+      padding: 9px 0 14px; text-align: center; background: #0a0b0f;
+    }
+    .nav-item { background: none; border: none; cursor: pointer; transition: 0.15s; position: relative; font-size: 11px; color: var(--muted); line-height: 1.5; }
+    .nav-item.active { color: #fb7185; font-weight: 700; }
+    .nav-item.active::after {
+      content: ""; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+      width: 18px; height: 3px; background: var(--accent); border-radius: 99px;
+    }
+
+    /* Einstellungen */
+    .settings {
+      position: absolute; inset: 0; background: var(--bg); z-index: 40; display: none; flex-direction: column;
+      animation: slideIn 0.2s ease;
+    }
+    .settings.open { display: flex; }
+    @keyframes slideIn { from { transform: translateX(24px); opacity: 0.4; } to { transform: translateX(0); opacity: 1; } }
+    .settings-head {
+      display: flex; align-items: center; gap: 12px; padding: 44px 20px 14px; border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(225, 29, 72, 0.07) 0%, rgba(12, 13, 18, 0.96) 100%);
+    }
+    .settings-head h2 { font-size: 19px; font-weight: 800; }
+    .settings-body { flex: 1; overflow-y: auto; padding: 14px 20px 28px; display: flex; flex-direction: column; gap: 20px; scrollbar-width: none; }
+    .settings-body::-webkit-scrollbar { display: none; }
+    .group-title { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #fda4af; margin-bottom: 8px; }
+    .group { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .row { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; border-top: 1px solid var(--border); }
+    .row:first-child { border-top: none; }
+    .row-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .row-label { font-size: 14px; font-weight: 600; }
+    .row-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
+    .row-value { font-size: 12px; color: #fda4af; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .tag { font-size: 10px; font-weight: 700; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: 2px; }
+    .row.disabled { opacity: 0.45; pointer-events: none; }
+
+    .seg { display: flex; background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 3px; }
+    .seg button {
+      flex: 1; min-width: 0; background: transparent; border: none; border-radius: 7px; padding: 6px 2px;
+      font-size: 11.5px; color: var(--muted); font-weight: 600; cursor: pointer; white-space: nowrap; transition: 0.15s;
+    }
+    .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; box-shadow: 0 2px 8px var(--accent-glow); }
+
+    .toggle-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: #2a2f3f; border-radius: 999px; transition: 0.2s; }
+    .slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+    .toggle-switch input:checked + .slider { background: var(--accent); }
+    .toggle-switch input:checked + .slider::before { transform: translateX(18px); }
+    .toggle-switch input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .range { width: 100%; accent-color: var(--accent); }
+    .stepper { display: flex; align-items: center; gap: 4px; background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+    .stepper button { width: 28px; height: 26px; border: none; border-radius: 7px; background: var(--card); cursor: pointer; font-weight: 700; }
+    .stepper button:hover { background: var(--accent-soft); color: #fda4af; }
+    .stepper span { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .select {
+      background: var(--field); border: 1px solid var(--border); color: var(--text); border-radius: 10px;
+      padding: 7px 10px; font-size: 13px; outline: none; cursor: pointer;
+    }
+    .select:focus { border-color: var(--accent); }
+    .action-row { width: 100%; background: none; border: none; text-align: left; cursor: pointer; }
+    .action-row:hover { background: var(--card-hover); }
+    .action-row .row-label.danger { color: #fb7185; }
+
+    .storage-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: #2a2f3f; }
+    .storage-bar .dl { background: var(--accent); }
+    .storage-bar .cache { background: #fb923c; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+    .source-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .source-list span { font-size: 11px; color: var(--text); background: var(--field); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; }
+
+    /* Dialoge */
+    .modal-backdrop {
+      position: absolute; inset: 0; background: rgba(5, 6, 9, 0.8); backdrop-filter: blur(4px);
+      display: none; align-items: flex-end; justify-content: center; z-index: 60;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-sheet {
+      width: 100%; background: #151822; border-top: 1px solid var(--accent-border);
+      border-radius: 24px 24px 0 0; padding: 20px; display: flex; flex-direction: column; gap: 14px;
+      max-height: 85%; overflow-y: auto; animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(30px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; }
+    .modal-head h3 { font-size: 16px; font-weight: 700; }
+    .close-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; }
+    .field-label { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 5px; display: block; }
+    .input-field { width: 100%; background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text); font-size: 14px; outline: none; }
+    .input-field:focus { border-color: var(--accent); }
+    .emoji-picker { display: flex; gap: 8px; }
+    .emoji-opt { width: 38px; height: 38px; border-radius: 10px; background: var(--field); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; }
+    .emoji-opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+    .check-list { display: flex; flex-direction: column; gap: 7px; max-height: 190px; overflow-y: auto; }
+    .check-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--field); border: 1px solid var(--border); padding: 9px 11px; border-radius: 10px; font-size: 13px; cursor: pointer; }
+    .check-item input { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
+    .confirm-text { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row .pill-btn { flex: 1; padding: 11px; font-size: 14px; }
+
+    .toast {
+      position: absolute; top: 68px; left: 50%; transform: translateX(-50%);
+      background: #1c1218; border: 1px solid var(--accent); color: #ffe4e6;
+      padding: 8px 14px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.65); z-index: 100; display: none; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <div id="toast" class="toast" role="status" aria-live="polite">Gespeichert</div>
+
+    <div class="status-bar"><span>14:04</span><span>5G 100%</span></div>
+
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo" aria-label="HomeBeat Logo">
+          <svg viewBox="0 0 200 200" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 76 18 Q 100 8 124 18" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 83 26 Q 100 19 117 26" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 22 68 Q 10 88 22 108" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 13 62 Q -2 88 13 114" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 178 68 Q 190 88 178 108" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 187 62 Q 202 88 187 114" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+            <polyline points="46,96 46,176 154,176 154,96" fill="none" stroke="#111111" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+            <polyline points="52,92 100,52 148,92" fill="none" stroke="#111111" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+            <path d="M 48 68 A 56 54 0 0 1 152 68" fill="none" stroke="#b30000" stroke-width="8" stroke-linecap="round"/>
+            <path d="M 62 46 A 56 54 0 0 1 138 46" fill="none" stroke="#111111" stroke-width="11" stroke-linecap="round"/>
+            <rect x="28" y="68" width="13" height="36" rx="6" fill="#b30000"/>
+            <rect x="43" y="64" width="6" height="44" rx="3" fill="#111111"/>
+            <rect x="159" y="68" width="13" height="36" rx="6" fill="#b30000"/>
+            <rect x="151" y="64" width="6" height="44" rx="3" fill="#111111"/>
+            <path d="M 92 94 H 122 C 138 94 146 103 146 114 C 146 123 140 129 132 132 C 143 135 150 142 150 153 C 150 166 139 174 121 174 H 108 V 162 H 120 C 130 162 136 158 136 151 C 136 144 130 139 119 139 H 108 V 127 H 118 C 127 127 132 123 132 116 C 132 109 127 106 118 106 H 92 Z" fill="#111111"/>
+            <path d="M 56 94 H 76 V 126 C 81 120 88 117 95 117 C 107 117 114 125 114 139 V 163 H 121 V 174 H 95 V 163 H 100 V 141 C 100 132 95 128 88 128 C 81 128 76 133 76 142 V 163 H 82 V 174 H 56 V 163 H 62 V 105 H 56 Z" fill="#b30000"/>
+          </svg>
+        </div>
+        <span class="brand-title">Home<span>Beat</span></span>
+      </div>
+      <button class="icon-btn" id="open-settings" aria-label="Einstellungen öffnen" title="Einstellungen" onclick="openSettings()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="views">
+      <!-- START -->
+      <section id="view-start" class="view active">
+        <div class="quick-grid">
+          <button class="quick-item" onclick="switchTab('library')">❤ Favoriten</button>
+          <button class="quick-item" onclick="playTrack('Velvet Horizon', 'YT Music')">✨ Für dich empfohlen</button>
+          <button class="quick-item" onclick="switchTab('library')">📥 Offline-Downloads</button>
+          <button class="quick-item" onclick="showToast('🔀 Zufallsmix gestartet')">🔀 Zufallsmix</button>
+        </div>
+
+        <div>
+          <div class="section-head">
+            <h2>Für dich empfohlen</h2>
+            <button class="pill-btn" onclick="showToast('🔄 Neue Vorschläge geladen')">Neu laden</button>
+          </div>
+          <div class="card-row">
+            <button class="track-card" onclick="playTrack('Velvet Horizon', 'Ähnlich wie Billie Eilish')">
+              <div class="track-info"><div class="track-icon">🎵</div><div style="min-width:0;">
+                <div class="track-title">Velvet Horizon</div>
+                <div class="track-sub"><span class="src">YT</span>Ähnlich wie Billie Eilish</div>
+              </div></div><span class="meta">3:58</span>
+            </button>
+            <button class="track-card" onclick="playTrack('Berlin Afterhours', 'Club & Electronic')">
+              <div class="track-info"><div class="track-icon">🎧</div><div style="min-width:0;">
+                <div class="track-title">Berlin Afterhours</div>
+                <div class="track-sub"><span class="src">SC</span>Club & Electronic</div>
+              </div></div><span class="meta">6:12</span>
+            </button>
+            <button class="track-card" onclick="playTrack('Acoustic Sessions', 'Indie & Chill')">
+              <div class="track-info"><div class="track-icon">🎸</div><div style="min-width:0;">
+                <div class="track-title">Acoustic Sessions</div>
+                <div class="track-sub"><span class="src">JAM</span>Indie & Chill</div>
+              </div></div><span class="meta">4:21</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-head"><h2>Zuletzt gehört</h2></div>
+          <div class="card-row">
+            <button class="track-card" onclick="playTrack('Mitternacht im Regen', 'Luna & The Waves')">
+              <div class="track-info"><div class="track-icon">🎵</div><div style="min-width:0;">
+                <div class="track-title">Mitternacht im Regen</div>
+                <div class="track-sub"><span class="src">OFFLINE</span>Luna & The Waves</div>
+              </div></div><span class="meta">3:42</span>
+            </button>
+            <button class="track-card" onclick="playTrack('SWR3', 'Live-Radio')">
+              <div class="track-info"><div class="track-icon">📻</div><div style="min-width:0;">
+                <div class="track-title">SWR3</div>
+                <div class="track-sub">Live-Radio • 192 kbps AAC</div>
+              </div></div><span class="live-badge">LIVE</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SUCHE -->
+      <section id="view-search" class="view">
+        <input class="search-box" id="search-input" type="search" value="Midnight City" placeholder="Songs, Künstler, Alben, Hörbücher …" aria-label="Suche" />
+        <p class="hint">Jede Suche läuft automatisch über alle Musikquellen. Doppelte Treffer werden zusammengefasst.</p>
+        <div class="chip-row" id="search-chips">
+          <button class="chip active">Alle</button>
+          <button class="chip">Songs</button>
+          <button class="chip">Künstler</button>
+          <button class="chip">Alben</button>
+          <button class="chip">Playlists</button>
+          <button class="chip">DJ-Sets & Live</button>
+          <button class="chip">Hörbücher</button>
+          <button class="chip">Podcasts</button>
+        </div>
+        <div class="card-row">
+          <button class="track-card" onclick="playTrack('Midnight City', 'M83')">
+            <div class="track-info"><div class="track-icon">💿</div><div style="min-width:0;">
+              <div class="track-title">Midnight City</div>
+              <div class="track-sub"><span class="src">YT</span>M83 • Hurry Up, We're Dreaming</div>
+            </div></div><span class="meta">4:03</span>
+          </button>
+          <button class="track-card" onclick="playTrack('Midnight City (Club Edit)', 'Remix')">
+            <div class="track-info"><div class="track-icon">🎧</div><div style="min-width:0;">
+              <div class="track-title">Midnight City (Club Edit)</div>
+              <div class="track-sub"><span class="src">SC</span>Remix • 1,2 Mio. Plays</div>
+            </div></div><span class="meta">4:18</span>
+          </button>
+          <button class="track-card" onclick="playTrack('Midnight City (Live)', 'M83 Live')">
+            <div class="track-info"><div class="track-icon">🎤</div><div style="min-width:0;">
+              <div class="track-title">Midnight City (Live)</div>
+              <div class="track-sub"><span class="src">ARC</span>Konzertmitschnitt • FLAC</div>
+            </div></div><span class="meta">5:37</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- RADIO -->
+      <section id="view-radio" class="view">
+        <div class="section-head"><h2>Live-Radio</h2><span class="track-sub">40.000+ Sender</span></div>
+        <div class="chip-row">
+          <button class="chip active">Deutschland Top</button>
+          <button class="chip">Pop & Charts</button>
+          <button class="chip">Electronic</button>
+          <button class="chip">Rock</button>
+          <button class="chip">Nachrichten</button>
+        </div>
+        <div class="card-row">
+          <button class="track-card" onclick="playTrack('SWR3', 'Pop & Charts')">
+            <div class="track-info"><div class="track-icon">📻</div><div style="min-width:0;"><div class="track-title">SWR3</div><div class="track-sub">Pop & Charts • 192 kbps AAC</div></div></div><span class="live-badge">LIVE</span>
+          </button>
+          <button class="track-card" onclick="playTrack('1LIVE', 'Aktuelle Hits')">
+            <div class="track-info"><div class="track-icon">🎧</div><div style="min-width:0;"><div class="track-title">1LIVE</div><div class="track-sub">Aktuelle Hits • 128 kbps MP3</div></div></div><span class="live-badge">LIVE</span>
+          </button>
+          <button class="track-card" onclick="playTrack('Sunshine Live', 'Electronic & Dance')">
+            <div class="track-info"><div class="track-icon">🎛</div><div style="min-width:0;"><div class="track-title">Sunshine Live</div><div class="track-sub">Electronic & Dance • 192 kbps</div></div></div><span class="live-badge">LIVE</span>
+          </button>
+          <button class="track-card" onclick="playTrack('ROCK ANTENNE', 'Rock')">
+            <div class="track-info"><div class="track-icon">🎸</div><div style="min-width:0;"><div class="track-title">ROCK ANTENNE</div><div class="track-sub">Rock • 192 kbps AAC</div></div></div><span class="live-badge">LIVE</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- BIBLIOTHEK -->
+      <section id="view-library" class="view">
+        <div class="section-head">
+          <h2>Bibliothek</h2>
+          <button class="pill-btn primary" onclick="openModal('modal-create')">➕ Neue Playlist</button>
+        </div>
+        <div class="card-row">
+          <button class="track-card" onclick="openModal('modal-import')">
+            <div class="track-info"><div class="track-icon">📥</div><div style="min-width:0;">
+              <div class="track-title">Playlist importieren</div>
+              <div class="track-sub">Spotify-Datenexport oder CSV-Datei</div>
+            </div></div><span class="meta">›</span>
+          </button>
+          <button class="track-card" onclick="showToast('❤ Favoriten geöffnet')">
+            <div class="track-info"><div class="track-icon">❤</div><div style="min-width:0;">
+              <div class="track-title">Favoriten <span style="color:var(--muted);font-weight:400;">(124)</span></div>
+              <div class="track-sub">Deine gemerkten Songs</div>
+            </div></div><span class="meta">›</span>
+          </button>
+          <button class="track-card" onclick="showToast('📥 Downloads geöffnet')">
+            <div class="track-info"><div class="track-icon">✈</div><div style="min-width:0;">
+              <div class="track-title">Offline-Downloads <span style="color:var(--muted);font-weight:400;">(48)</span></div>
+              <div class="track-sub" id="lib-dl-sub">412 MB auf diesem Gerät • ohne Internet hörbar</div>
+            </div></div><span class="meta">›</span>
+          </button>
+        </div>
+        <div>
+          <div class="section-head">
+            <h2>Eigene Playlists</h2>
+            <span class="track-sub" id="playlist-count">2 Playlists</span>
+          </div>
+          <div class="card-row" id="playlist-container"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- MINI PLAYER -->
+    <div class="mini-player">
+      <div class="track-info">
+        <div class="track-icon">🎵</div>
+        <div style="min-width:0;">
+          <div class="track-title" id="player-title">Mitternacht im Regen</div>
+          <div class="track-sub" id="player-sub">Luna & The Waves</div>
+        </div>
+      </div>
+      <div class="player-controls">
+        <button class="heart-btn" onclick="showToast('❤ Zu Favoriten hinzugefügt')" aria-label="Zu Favoriten hinzufügen">❤</button>
+        <button class="play-toggle" id="play-btn" onclick="togglePlay()" aria-label="Pause">❚❚</button>
+      </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <nav class="nav-bar" aria-label="Hauptnavigation">
+      <button class="nav-item active" id="nav-start" onclick="switchTab('start')">🏠<br>Start</button>
+      <button class="nav-item" id="nav-search" onclick="switchTab('search')">🔍<br>Suche</button>
+      <button class="nav-item" id="nav-radio" onclick="switchTab('radio')">📻<br>Radio</button>
+      <button class="nav-item" id="nav-library" onclick="switchTab('library')">📚<br>Bibliothek</button>
+    </nav>
+
+    <!-- EINSTELLUNGEN -->
+    <div class="settings" id="settings" role="dialog" aria-label="Einstellungen">
+      <div class="settings-head">
+        <button class="icon-btn" onclick="closeSettings()" aria-label="Zurück">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <h2>Einstellungen</h2>
+      </div>
+
+      <div class="settings-body">
+        <!-- Soundqualität -->
+        <div>
+          <div class="group-title">Soundqualität</div>
+          <div class="group">
+            <div class="row">
+              <div><div class="row-label">Streaming über WLAN</div></div>
+              <div class="seg" data-setting="wifiQuality" data-options="Auto|Niedrig|Normal|Hoch|Beste"></div>
+            </div>
+            <div class="row" id="row-mobile-quality">
+              <div><div class="row-label">Streaming über Mobilfunk</div></div>
+              <div class="seg" data-setting="mobileQuality" data-options="Auto|Niedrig|Normal|Hoch|Beste"></div>
+            </div>
+            <div class="row">
+              <div><div class="row-label">Download-Qualität</div><div class="row-desc">Gilt für alle Songs, die du offline speicherst.</div></div>
+              <div class="seg" data-setting="downloadQuality" data-options="Normal|Hoch|Beste"></div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Datensparmodus</div><div class="row-desc">Mobilfunk immer in niedriger Qualität, keine Cover in HD.</div></div>
+                <label class="toggle-switch"><input type="checkbox" id="dataSaver" data-toggle="dataSaver" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-desc">„Beste“ heißt: die höchste Qualität, die die jeweilige Quelle liefert. Meist sind das 128–256 kbps, bei Internet Archive und Jamendo teils verlustfrei (FLAC).</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Downloads -->
+        <div>
+          <div class="group-title">Downloads</div>
+          <div class="group">
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Nur über WLAN herunterladen</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="wifiOnlyDownloads" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div><div class="row-label">Download-Geschwindigkeit</div><div class="row-desc">Begrenzen, damit Streaming und andere Geräte im WLAN flüssig bleiben.</div></div>
+              <div class="seg" data-setting="downloadSpeed" data-options="Unbegrenzt|5 MB/s|2 MB/s|1 MB/s"></div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Gleichzeitige Downloads</div></div>
+                <div class="stepper">
+                  <button onclick="stepParallel(-1)" aria-label="Weniger">−</button>
+                  <span id="parallel-value">3</span>
+                  <button onclick="stepParallel(1)" aria-label="Mehr">+</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Favoriten automatisch offline speichern</div><div class="row-desc">Neue Favoriten werden im Hintergrund heruntergeladen.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="autoDownloadFavorites" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div><div class="row-label">Speicherort <span class="tag">nur Android</span></div></div>
+              <div class="seg" data-setting="storageLocation" data-options="Interner Speicher|SD-Karte"></div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Speicher-Obergrenze für Downloads</div></div>
+                <select class="select" id="storageLimit" onchange="settingChanged('Speicher-Obergrenze', this.value)">
+                  <option>2 GB</option><option>5 GB</option><option selected>10 GB</option><option>20 GB</option><option>Unbegrenzt</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line"><div class="row-label">Speicher auf diesem Gerät</div><span class="row-value" id="storage-total">592 MB belegt</span></div>
+              <div class="storage-bar"><div class="dl" id="bar-dl" style="width: 4.1%"></div><div class="cache" id="bar-cache" style="width: 1.8%"></div></div>
+              <div class="legend">
+                <span><i style="background:var(--accent)"></i><span id="lg-dl">Downloads 412 MB</span></span>
+                <span><i style="background:#fb923c"></i><span id="lg-cache">Cache 180 MB</span></span>
+                <span><i style="background:#2a2f3f"></i>Frei bis zur Grenze</span>
+              </div>
+            </div>
+            <button class="row action-row" onclick="askConfirm('Alle Downloads löschen?', '48 Songs (412 MB) werden von diesem Gerät entfernt. Playlists und Favoriten bleiben erhalten.', 'Löschen', clearDownloads)">
+              <span class="row-label danger">Alle Downloads löschen</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Wiedergabe -->
+        <div>
+          <div class="group-title">Wiedergabe</div>
+          <div class="group">
+            <div class="row">
+              <div class="row-line"><div class="row-label">Überblenden</div><span class="row-value" id="crossfade-value">0 s</span></div>
+              <input class="range" type="range" id="crossfade" min="0" max="12" step="1" value="0" aria-label="Überblenden in Sekunden" oninput="document.getElementById('crossfade-value').textContent = this.value + ' s'" onchange="settingChanged('Überblenden', this.value + ' s')" />
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Lückenlose Wiedergabe</div><div class="row-desc">Keine Pause zwischen Titeln, z. B. bei Live-Alben.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="gapless" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div><div class="row-label">Lautstärke angleichen</div><div class="row-desc">Alle Songs klingen ungefähr gleich laut, egal aus welcher Quelle.</div></div>
+              <div class="seg" data-setting="normalize" data-options="Aus|Leise|Normal|Laut"></div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Equalizer</div></div>
+                <select class="select" id="equalizer" onchange="settingChanged('Equalizer', this.value)">
+                  <option>Aus</option><option>Bass-Boost</option><option>Pop</option><option>Rock</option><option>Akustik</option><option>Elektronisch</option><option>Sprache</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Autoplay</div><div class="row-desc">Spielt ähnliche Musik, wenn die Warteschlange leer ist.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="autoplay" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div><div class="row-label">Sleep-Timer</div></div>
+              <div class="seg" data-setting="sleepTimer" data-options="Aus|15 Min|30 Min|60 Min|Titelende"></div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Anstößige Inhalte ausblenden</div><div class="row-desc">Songs mit „Explicit“-Kennzeichnung werden übersprungen.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="hideExplicit" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Mono-Audio</div><div class="row-desc">Beide Kanäle auf jedem Ohr, hilfreich mit nur einem Ohrhörer.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="mono" /><span class="slider"></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Speicher & Daten -->
+        <div>
+          <div class="group-title">Speicher & Daten</div>
+          <div class="group">
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Cache-Größe</div><div class="row-desc">Zwischenspeicher für zuletzt gehörte Songs und Cover.</div></div>
+                <select class="select" id="cacheSize" onchange="settingChanged('Cache-Größe', this.value)">
+                  <option>256 MB</option><option selected>512 MB</option><option>1 GB</option><option>2 GB</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Offline-Modus</div><div class="row-desc">Zeigt nur heruntergeladene Musik, nutzt kein Internet.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="offlineMode" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Private Sitzung</div><div class="row-desc">Was du jetzt hörst, beeinflusst deine Empfehlungen nicht.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="privateSession" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <button class="row action-row" onclick="clearCache()"><span class="row-label">Cache leeren</span></button>
+            <button class="row action-row" onclick="askConfirm('Verlauf löschen?', 'Die Liste „Zuletzt gehört“ wird geleert.', 'Löschen', () => showToast('🗑 Verlauf gelöscht'))"><span class="row-label">Verlauf löschen</span></button>
+            <button class="row action-row" onclick="askConfirm('Empfehlungen zurücksetzen?', '„Für dich empfohlen“ startet neu und lernt deinen Geschmack wieder von vorn.', 'Zurücksetzen', () => showToast('✨ Empfehlungen zurückgesetzt'))"><span class="row-label danger">Empfehlungen zurücksetzen</span></button>
+          </div>
+        </div>
+
+        <!-- Bibliothek -->
+        <div>
+          <div class="group-title">Bibliothek sichern</div>
+          <div class="group">
+            <div class="row"><div class="row-desc">Deine Playlists und Favoriten liegen nur auf diesem Handy. Sichere sie als Datei, damit sie bei einem neuen Handy nicht verloren gehen.</div></div>
+            <button class="row action-row" onclick="showToast('💾 Sicherung „HomeBeat-Backup.json“ erstellt')"><span class="row-label">Bibliothek sichern</span></button>
+            <button class="row action-row" onclick="showToast('📂 Sicherungsdatei auswählen …')"><span class="row-label">Aus Sicherung wiederherstellen</span></button>
+            <button class="row action-row" onclick="closeSettings(); openModal('modal-import')"><span class="row-label">Playlist importieren</span></button>
+          </div>
+        </div>
+
+        <!-- Auto & Geräte -->
+        <div>
+          <div class="group-title">Auto & Geräte</div>
+          <div class="group">
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Android Auto</div><div class="row-desc">Favoriten, Playlists, Downloads und Radio auf dem Auto-Display.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="androidAuto" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Bei Bluetooth weiterspielen</div><div class="row-desc">Startet automatisch, wenn Kopfhörer oder Auto verbunden werden.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="bluetoothResume" /><span class="slider"></span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-line">
+                <div><div class="row-label">Auf Lautsprecher & TV streamen</div><div class="row-desc">Chromecast bzw. Google Cast im WLAN.</div></div>
+                <label class="toggle-switch"><input type="checkbox" data-toggle="cast" /><span class="slider"></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Über -->
+        <div>
+          <div class="group-title">Über HomeBeat</div>
+          <div class="group">
+            <div class="row">
+              <div class="row-line"><div class="row-label">Musikquellen</div><span class="row-value">alle aktiv</span></div>
+              <div class="row-desc">Werden bei jeder Suche automatisch gemeinsam durchsucht.</div>
+              <div class="source-list">
+                <span>YouTube Music</span><span>SoundCloud</span><span>Audius</span><span>Jamendo</span><span>Internet Archive</span>
+                <span>Openverse</span><span>LibriVox</span><span>Podcast Index</span><span>hearthis.at</span><span>Bandcamp</span>
+                <span>Mixcloud</span><span>JioSaavn</span><span>Radio Browser</span>
+              </div>
+            </div>
+            <div class="row"><div class="row-line"><div class="row-label">Version</div><span class="row-value">0.8 (Vorschau)</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIALOG: PLAYLIST ERSTELLEN -->
+    <div id="modal-create" class="modal-backdrop" onclick="if (event.target === this) closeModals()">
+      <div class="modal-sheet" role="dialog" aria-label="Neue Playlist erstellen">
+        <div class="modal-head"><h3>Neue Playlist erstellen</h3><button class="close-btn" onclick="closeModals()" aria-label="Schließen">✕</button></div>
+        <div>
+          <label class="field-label" for="new-pl-name">Playlist-Name</label>
+          <input id="new-pl-name" class="input-field" type="text" placeholder="z. B. Sonntagsfrühstück, Urlaub 2026 …" />
+        </div>
+        <div>
+          <span class="field-label">Symbol</span>
+          <div class="emoji-picker" id="emoji-picker">
+            <button class="emoji-opt" aria-pressed="true" data-emoji="🎶">🎶</button>
+            <button class="emoji-opt" aria-pressed="false" data-emoji="🚗">🚗</button>
+            <button class="emoji-opt" aria-pressed="false" data-emoji="🔥">🔥</button>
+            <button class="emoji-opt" aria-pressed="false" data-emoji="🏡">🏡</button>
+            <button class="emoji-opt" aria-pressed="false" data-emoji="🎉">🎉</button>
+          </div>
+        </div>
+        <div>
+          <span class="field-label">Songs direkt hinzufügen</span>
+          <div class="check-list" id="song-selector">
+            <label class="check-item"><span>Mitternacht im Regen – Luna & The Waves</span><input type="checkbox" checked value="Mitternacht im Regen" /></label>
+            <label class="check-item"><span>Velvet Horizon</span><input type="checkbox" checked value="Velvet Horizon" /></label>
+            <label class="check-item"><span>Midnight City – M83</span><input type="checkbox" value="Midnight City" /></label>
+            <label class="check-item"><span>Berlin Afterhours</span><input type="checkbox" value="Berlin Afterhours" /></label>
+            <label class="check-item"><span>Acoustic Sessions</span><input type="checkbox" value="Acoustic Sessions" /></label>
+          </div>
+        </div>
+        <button class="pill-btn primary" style="width: 100%; padding: 12px; font-size: 14px;" onclick="createPlaylist()">Playlist speichern</button>
+      </div>
+    </div>
+
+    <!-- DIALOG: IMPORT -->
+    <div id="modal-import" class="modal-backdrop" onclick="if (event.target === this) closeModals()">
+      <div class="modal-sheet" role="dialog" aria-label="Playlist importieren">
+        <div class="modal-head"><h3>Playlist importieren</h3><button class="close-btn" onclick="closeModals()" aria-label="Schließen">✕</button></div>
+        <p class="hint">Fordere bei Spotify unter Konto → Datenschutz → „Deine Daten herunterladen“ die Kontodaten an. Sobald die E-Mail da ist, lade die ZIP-Datei herunter und wähle sie hier aus. Alle Playlists und gespeicherten Songs werden übernommen.</p>
+        <button class="pill-btn primary" style="width: 100%; padding: 12px; font-size: 14px;" onclick="closeModals(); showToast('📥 12 Playlists und 124 Favoriten gefunden')">Spotify-Datenexport (ZIP) auswählen</button>
+        <p class="hint">Oder eine CSV-Datei, z. B. von Exportify, TuneMyMusic oder Soundiiz.</p>
+        <button class="pill-btn" style="width: 100%; padding: 12px; font-size: 14px;" onclick="closeModals(); showToast('📂 CSV-Datei auswählen …')">CSV-Datei auswählen</button>
+      </div>
+    </div>
+
+    <!-- DIALOG: BESTÄTIGEN -->
+    <div id="modal-confirm" class="modal-backdrop" onclick="if (event.target === this) closeModals()">
+      <div class="modal-sheet" role="alertdialog" aria-labelledby="confirm-title">
+        <h3 id="confirm-title" style="font-size:16px;">Sicher?</h3>
+        <p class="confirm-text" id="confirm-text"></p>
+        <div class="btn-row">
+          <button class="pill-btn" onclick="closeModals()">Abbrechen</button>
+          <button class="pill-btn primary" id="confirm-ok">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const settings = {
+      wifiQuality: 'Beste', mobileQuality: 'Normal', downloadQuality: 'Beste', dataSaver: false,
+      wifiOnlyDownloads: true, downloadSpeed: 'Unbegrenzt', parallel: 3, autoDownloadFavorites: false,
+      storageLocation: 'Interner Speicher', normalize: 'Normal', gapless: true, autoplay: true,
+      sleepTimer: 'Aus', hideExplicit: false, mono: false, offlineMode: false, privateSession: false,
+      androidAuto: true, bluetoothResume: true, cast: true
+    };
+
+    let playlists = [
+      { id: 1, name: 'Auto & Roadtrip Mix', emoji: '🚗', songs: 23, offline: 23 },
+      { id: 2, name: 'Feierabend & Chill', emoji: '🛋️', songs: 14, offline: 0 }
+    ];
+    let selectedEmoji = '🎶';
+    let isPlaying = true;
+    let downloadsMB = 412, cacheMB = 180;
+
+    function switchTab(tab) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('view-' + tab).classList.add('active');
+      document.getElementById('nav-' + tab).classList.add('active');
+    }
+
+    function playTrack(title, sub) {
+      document.getElementById('player-title').textContent = title;
+      document.getElementById('player-sub').textContent = sub;
+      isPlaying = true;
+      updatePlayBtn();
+      showToast('▶ Läuft: ' + title);
+    }
+    function togglePlay() { isPlaying = !isPlaying; updatePlayBtn(); }
+    function updatePlayBtn() {
+      const b = document.getElementById('play-btn');
+      b.textContent = isPlaying ? '❚❚' : '▶';
+      b.setAttribute('aria-label', isPlaying ? 'Pause' : 'Abspielen');
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2200);
+    }
+
+    /* Chips (nur Darstellung) */
+    document.querySelectorAll('.chip-row').forEach(row => {
+      row.addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        row.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+    });
+
+    /* Einstellungen */
+    function openSettings() { document.getElementById('settings').classList.add('open'); }
+    function closeSettings() { document.getElementById('settings').classList.remove('open'); }
+    function settingChanged(label, value) { showToast('✓ ' + label + ': ' + value); }
+
+    document.querySelectorAll('.seg').forEach(seg => {
+      const key = seg.dataset.setting;
+      seg.dataset.options.split('|').forEach(opt => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = opt;
+        b.setAttribute('aria-pressed', String(settings[key] === opt));
+        b.addEventListener('click', () => {
+          settings[key] = opt;
+          seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+          const label = seg.closest('.row').querySelector('.row-label').childNodes[0].textContent.trim();
+          settingChanged(label, opt);
+        });
+        seg.appendChild(b);
+      });
+    });
+
+    document.querySelectorAll('[data-toggle]').forEach(input => {
+      const key = input.dataset.toggle;
+      input.checked = !!settings[key];
+      input.addEventListener('change', () => {
+        settings[key] = input.checked;
+        const label = input.closest('.row').querySelector('.row-label').textContent.trim();
+        settingChanged(label, input.checked ? 'an' : 'aus');
+        if (key === 'dataSaver') applyDataSaver();
+      });
+    });
+
+    function applyDataSaver() {
+      const row = document.getElementById('row-mobile-quality');
+      row.classList.toggle('disabled', settings.dataSaver);
+      if (settings.dataSaver) {
+        row.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.textContent === 'Niedrig')));
+      } else {
+        row.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.textContent === settings.mobileQuality)));
+      }
+    }
+
+    function stepParallel(d) {
+      settings.parallel = Math.min(5, Math.max(1, settings.parallel + d));
+      document.getElementById('parallel-value').textContent = settings.parallel;
+    }
+
+    function renderStorage() {
+      const limitMB = 10240;
+      document.getElementById('bar-dl').style.width = (downloadsMB / limitMB * 100) + '%';
+      document.getElementById('bar-cache').style.width = (cacheMB / limitMB * 100) + '%';
+      document.getElementById('lg-dl').textContent = 'Downloads ' + downloadsMB + ' MB';
+      document.getElementById('lg-cache').textContent = 'Cache ' + cacheMB + ' MB';
+      document.getElementById('storage-total').textContent = (downloadsMB + cacheMB) + ' MB belegt';
+      document.getElementById('lib-dl-sub').textContent = downloadsMB
+        ? downloadsMB + ' MB auf diesem Gerät • ohne Internet hörbar'
+        : 'Noch nichts heruntergeladen';
+    }
+    function clearCache() { cacheMB = 0; renderStorage(); showToast('🧹 Cache geleert (180 MB frei)'); }
+    function clearDownloads() {
+      downloadsMB = 0;
+      playlists.forEach(p => p.offline = 0);
+      renderStorage(); renderPlaylists();
+      showToast('🗑 Alle Downloads gelöscht');
+    }
+
+    /* Dialoge */
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModals() { document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open')); }
+    function askConfirm(title, text, okLabel, onOk) {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-text').textContent = text;
+      const ok = document.getElementById('confirm-ok');
+      ok.textContent = okLabel;
+      ok.onclick = () => { closeModals(); onOk(); };
+      openModal('modal-confirm');
+    }
+
+    /* Playlists */
+    function renderPlaylists() {
+      const c = document.getElementById('playlist-container');
+      document.getElementById('playlist-count').textContent = playlists.length + (playlists.length === 1 ? ' Playlist' : ' Playlists');
+      c.innerHTML = '';
+      playlists.forEach(pl => {
+        const card = document.createElement('button');
+        card.className = 'track-card';
+        const off = pl.offline === pl.songs && pl.songs > 0 ? ' • offline verfügbar' : '';
+        card.innerHTML = `
+          <div class="track-info"><div class="track-icon">${pl.emoji}</div><div style="min-width:0;">
+            <div class="track-title"></div>
+            <div class="track-sub">${pl.songs} Songs${off}</div>
+          </div></div><span class="meta">›</span>`;
+        card.querySelector('.track-title').textContent = pl.name;
+        card.addEventListener('click', () => playTrack(pl.name, pl.songs + ' Songs • Eigene Playlist'));
+        c.appendChild(card);
+      });
+    }
+
+    document.querySelectorAll('.emoji-opt').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.emoji-opt').forEach(o => o.setAttribute('aria-pressed', 'false'));
+        el.setAttribute('aria-pressed', 'true');
+        selectedEmoji = el.dataset.emoji;
+      });
+    });
+
+    function createPlaylist() {
+      const name = document.getElementById('new-pl-name').value.trim() || 'Meine Playlist #' + (playlists.length + 1);
+      const count = document.querySelectorAll('#song-selector input:checked').length;
+      playlists.unshift({ id: Date.now(), name, emoji: selectedEmoji, songs: count, offline: 0 });
+      document.getElementById('new-pl-name').value = '';
+      renderPlaylists();
+      closeModals();
+      showToast('✅ Playlist „' + name + '“ erstellt');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModals(); closeSettings(); }
+    });
+
+    renderPlaylists();
+    renderStorage();
+  </script>
+</body>
+</html>
