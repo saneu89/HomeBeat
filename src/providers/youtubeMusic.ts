@@ -94,7 +94,13 @@ export const youtubeMusicProvider: MusicProvider = {
   streamAttempts(item, quality) {
     const { nativeId } = parseItemId(item.id);
     if (item.type !== 'track' || nativeId.includes(':')) return [];
-    return [...youtubeDirectAttempts(nativeId, quality), ...proxyAttempts(nativeId, quality)];
+    return youtubeDirectAttempts(nativeId, quality);
+  },
+
+  fallbackStreamAttempts(item, quality) {
+    const { nativeId } = parseItemId(item.id);
+    if (item.type !== 'track' || nativeId.includes(':')) return [];
+    return proxyAttempts(nativeId, quality);
   },
 
   async search(query: string, options?: SearchOptions): Promise<UnifiedItem[]> {

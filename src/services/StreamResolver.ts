@@ -3,15 +3,18 @@ import { getMatchProviders, getProvider, MATCH_ORDER } from '@/providers';
 import type { UnifiedItem } from '@/types/UnifiedItem';
 
 import { bestMatch } from './matching';
+import { assertStreamReadable } from './streams/fetchUtils';
 import { resolveAutoQuality } from './streams/quality';
 import type { ResolvedStream, StreamAttempt, StreamQuality } from './streams/types';
 
 /**
  * StreamResolver (Abschnitt 2):
  * - Stream-URLs werden erst beim Abspielen geholt und nur kurz zwischengespeichert.
- * - Reihenfolge: lokale Datei → eigene Quelle (bei YouTube: Direktabruf mit mehreren Clients,
- *   dann Invidious/Piped) → gleicher Song bei anderen Quellen („Künstler – Titel“ mit Dauer-Abgleich)
- *   in der Reihenfolge YouTube Music, JioSaavn, SoundCloud, Audius.
+ * - Reihenfolge: lokale Datei → eigene Quelle (bei YouTube: Direktabruf mit mehreren Clients)
+ *   → gleicher Song bei anderen Quellen („Künstler – Titel“ mit Dauer-Abgleich ±5 s) in der
+ *   Reihenfolge YouTube Music, JioSaavn, SoundCloud, Audius → zuletzt Invidious/Piped (langsam,
+ *   meist offline – stünden sie vorne, käme die Ausweichquelle erst nach bis zu ~50 s).
+ * - Jede URL wird vor der Übergabe an den Player ab ~1 MB probegelesen (YouTube ohne PO-Token: 403).
  * - Fehlgeschlagene Wege werden über `exclude` übersprungen, damit der Player bei einem Fehler
  *   automatisch den nächsten Weg nimmt.
  */
@@ -88,7 +91,12 @@ class StreamResolverImpl {
     const failures: string[] = [];
     for await (const candidate of this.candidates(item, quality, exclude, failures, options)) {
       try {
-        const stream = await withTimeout((signal) => candidate.attempt.resolve(signal), ATTEMPT_TIMEOUT_MS, options.signal);
+        const stream = await withTimeout(async (signal) => {
+          const s = await candidate.attempt.resolve(signal);
+          // HLS-Wiedergabelisten sind klein – dort nichts zu prüfen.
+          if (!s.isLocal && !/mpegurl/i.test(s.mimeType ?? '')) await assertStreamReadable(s.url, s.headers, signal);
+          return s;
+        }, ATTEMPT_TIMEOUT_MS, options.signal);
         const result: ResolveResult = { stream, attemptKey: candidate.key, playedItem: candidate.item, failures };
         if (!stream.isLocal) {
           this.cache.set(cacheKey, { result, until: Math.min(stream.expiresAt, Date.now() + CACHE_TTL_MS) });
@@ -139,21 +147,27 @@ class StreamResolverImpl {
     }
 
     // 3. Gleicher Song bei anderen Quellen
-    if (item.type !== 'track') return;
-    const matchProviders = getMatchProviders();
-    for (const id of MATCH_ORDER) {
-      if (id === item.source) continue;
-      const provider = matchProviders.find((p) => p.id === id);
-      if (!provider) {
-        failures.push(`match:${id}: Quelle nicht eingebaut oder ohne Schlüssel – nicht versucht`);
-        continue;
+    if (item.type === 'track') {
+      const matchProviders = getMatchProviders();
+      for (const id of MATCH_ORDER) {
+        if (id === item.source) continue;
+        const provider = matchProviders.find((p) => p.id === id);
+        if (!provider) {
+          failures.push(`match:${id}: ohne Schlüssel – nicht versucht`);
+          continue;
+        }
+        const match = await this.findMatch(item, provider.id, options.signal, failures);
+        if (!match) continue;
+        for (const attempt of provider.streamAttempts?.(match, quality) ?? []) {
+          const key = `match:${provider.id}:${attempt.key}`;
+          if (!exclude.has(key)) yield { key, item: match, attempt };
+        }
       }
-      const match = await this.findMatch(item, provider.id, options.signal, failures);
-      if (!match) continue;
-      for (const attempt of provider.streamAttempts?.(match, quality) ?? []) {
-        const key = `match:${provider.id}:${attempt.key}`;
-        if (!exclude.has(key)) yield { key, item: match, attempt };
-      }
+    }
+
+    // 4. Langsame Notwege der eigenen Quelle (Invidious/Piped) zuletzt
+    for (const attempt of own?.fallbackStreamAttempts?.(item, quality) ?? []) {
+      if (!exclude.has(attempt.key)) yield { key: attempt.key, item, attempt };
     }
   }
 
@@ -175,6 +189,7 @@ class StreamResolverImpl {
       );
       const match = bestMatch(item, results) ?? null;
       this.matches.set(key, match);
+      if (!match) failures.push(`suche:${providerId}: ${results.length} Ergebnisse, kein passender Treffer (Künstler/Titel/Dauer ±5 s)`);
       return match;
     } catch (e) {
       signal?.throwIfAborted();

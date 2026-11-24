@@ -1,13 +1,16 @@
 import type { SourceId } from '@/types/UnifiedItem';
 
+import { audiusProvider } from './audius';
+import { jiosaavnProvider } from './jiosaavn';
 import type { MusicProvider } from './MusicProvider';
+import { soundcloudProvider } from './soundcloud';
 import { youtubeMusicProvider } from './youtubeMusic';
 
 /**
  * Alle Musikquellen. Es gibt bewusst keine Einstellung zum An-/Abschalten oder Sortieren:
  * Jede Quelle ist immer aktiv; Quellen ohne Schlüssel melden isAvailable() = false.
  */
-export const PROVIDERS: readonly MusicProvider[] = [youtubeMusicProvider];
+export const PROVIDERS: readonly MusicProvider[] = [youtubeMusicProvider, jiosaavnProvider, soundcloudProvider, audiusProvider];
 
 /**
  * Reihenfolge für das Auflösen von Songs ohne eigenen Stream (Abschnitt 2, StreamResolver):

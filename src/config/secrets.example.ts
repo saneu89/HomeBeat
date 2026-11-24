@@ -13,6 +13,13 @@ export const SECRETS = {
   /** Jamendo – kostenlose Client-ID unter https://devportal.jamendo.com (App anlegen → „Client ID“). */
   JAMENDO_CLIENT_ID: '',
 
+  /**
+   * SoundCloud – offizielle API. App-Registrierung unter https://soundcloud.com/you/apps
+   * (laut Doku nur mit „Artist Pro“-Abo). Ohne Werte wird SoundCloud still übersprungen.
+   */
+  SOUNDCLOUD_CLIENT_ID: '',
+  SOUNDCLOUD_CLIENT_SECRET: '',
+
   /** Last.fm – kostenloser API-Key unter https://www.last.fm/api/account/create */
   LASTFM_API_KEY: '',
 };

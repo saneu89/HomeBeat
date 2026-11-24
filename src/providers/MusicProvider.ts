@@ -23,6 +23,8 @@ export interface MusicProvider {
    * Fehlt die Methode, liefert die Quelle nur Metadaten (z. B. Deezer).
    */
   streamAttempts?(item: UnifiedItem, quality: Exclude<StreamQuality, 'auto'>): StreamAttempt[];
+  /** Langsame Notwege (z. B. Invidious/Piped) – erst nach den Ausweichquellen anderer Anbieter. */
+  fallbackStreamAttempts?(item: UnifiedItem, quality: Exclude<StreamQuality, 'auto'>): StreamAttempt[];
   /** true = Quelle eignet sich, um Songs ohne eigenen Stream per „Künstler – Titel“ aufzulösen. */
   readonly canResolveMatches?: boolean;
 }
