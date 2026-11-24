@@ -1,6 +1,7 @@
 import { Constants, type Types } from 'youtubei.js';
 
 import { getInnertube } from '@/services/youtube/innertube';
+import { getPoToken } from '@/services/youtube/poToken';
 
 import { pickFormat, splitMime } from './quality';
 import type { ResolvedStream, StreamAttempt, StreamQuality } from './types';
@@ -62,8 +63,16 @@ async function resolveWithClient(
   const chosen = pickFormat(audio, quality);
   if (!chosen) throw new Error(`YouTube (${client}): keine passende Audio-Variante`);
 
-  const url = await chosen.format.decipher(yt.session.player);
+  let url = await chosen.format.decipher(yt.session.player);
   if (!url) throw new Error(`YouTube (${client}): Stream-URL konnte nicht entschlüsselt werden`);
+  if (client === 'YTMUSIC') {
+    // Ohne PO-Token liefert YouTube nur ~1 MB (danach HTTP 403) – dann gar nicht erst versuchen.
+    try {
+      url += `&pot=${encodeURIComponent(await getPoToken(videoId))}`;
+    } catch (e) {
+      throw new Error(`YouTube (${client}): kein PO-Token – ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   const expires = sd.expires instanceof Date ? sd.expires.getTime() - 60_000 : Date.now() + MAX_TTL_MS;
   return {

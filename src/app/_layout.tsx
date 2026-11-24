@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { PoTokenWebView } from '@/components/PoTokenWebView';
 import { Toast } from '@/components/Toast';
 import { StateView } from '@/components/ui/StateView';
 import { getDb } from '@/database/db';
@@ -56,6 +57,7 @@ export default function RootLayout() {
           </View>
         )}
         <Toast />
+        <PoTokenWebView />
       </ThemeProvider>
     </SafeAreaProvider>
   );
