@@ -1,5 +1,5 @@
 import { getDownloadedFile } from '@/database/trackRepo';
-import { getMatchProviders, getProvider } from '@/providers';
+import { getMatchProviders, getProvider, MATCH_ORDER } from '@/providers';
 import type { UnifiedItem } from '@/types/UnifiedItem';
 
 import { bestMatch } from './matching';
@@ -82,7 +82,7 @@ class StreamResolverImpl {
     const cacheKey = `${item.id}|${quality}`;
     const cached = this.cache.get(cacheKey);
     if (cached && cached.until > Date.now() && !exclude.has(cached.result.attemptKey)) {
-      return cached.result;
+      return { ...cached.result, failures: [] }; // Fehlschläge stehen schon im Protokoll des ersten Abrufs
     }
 
     const failures: string[] = [];
@@ -140,8 +140,14 @@ class StreamResolverImpl {
 
     // 3. Gleicher Song bei anderen Quellen
     if (item.type !== 'track') return;
-    for (const provider of getMatchProviders()) {
-      if (provider.id === item.source) continue;
+    const matchProviders = getMatchProviders();
+    for (const id of MATCH_ORDER) {
+      if (id === item.source) continue;
+      const provider = matchProviders.find((p) => p.id === id);
+      if (!provider) {
+        failures.push(`match:${id}: Quelle nicht eingebaut oder ohne Schlüssel – nicht versucht`);
+        continue;
+      }
       const match = await this.findMatch(item, provider.id, options.signal, failures);
       if (!match) continue;
       for (const attempt of provider.streamAttempts?.(match, quality) ?? []) {

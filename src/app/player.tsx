@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeartButton, PlayPauseButton } from '@/components/player/PlayerButtons';
 import { SeekBar } from '@/components/player/SeekBar';
 import { Chip } from '@/components/ui/Chip';
+import { PillButton } from '@/components/ui/PillButton';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { SourceBadge } from '@/components/ui/SourceBadge';
 import { StateView } from '@/components/ui/StateView';
@@ -34,6 +35,7 @@ export default function PlayerScreen() {
   const index = usePlayerState((s) => s.index);
   const nowPlaying = usePlayerState((s) => s.nowPlaying);
   const error = usePlayerState((s) => s.error);
+  const errorDetails = usePlayerState((s) => s.errorDetails);
   const sleepTimer = usePlayerState((s) => s.sleepTimer);
   const speed = usePlayerState((s) => s.playbackSpeed);
 
@@ -110,7 +112,24 @@ export default function PlayerScreen() {
           {qualityText}
         </Text>
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.error}>{error}</Text>
+          {errorDetails.length > 0 ? (
+            <Text style={styles.errorDetails} selectable>
+              {errorDetails.join('\n')}
+            </Text>
+          ) : null}
+          <View style={styles.errorButtons}>
+            <PillButton label="Erneut versuchen" variant="primary" onPress={() => void AudioPlayerService.retry()} />
+            <PillButton
+              label="Nächster Song"
+              disabled={upcoming.length === 0}
+              onPress={() => void AudioPlayerService.next()}
+            />
+          </View>
+        </View>
+      ) : null}
 
       <SeekBar fallbackDuration={item.durationSec} isLive={item.isLive} />
 
@@ -248,7 +267,10 @@ const styles = StyleSheet.create({
   artist: { color: colors.textMuted, fontSize: fonts.size.md, marginTop: 3 },
   sourceRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.sm },
   sourceText: { color: colors.textMuted, fontSize: fonts.size.sm, flexShrink: 1 },
-  error: { color: colors.danger, fontSize: fonts.size.caption, marginBottom: spacing.sm },
+  errorBox: { marginBottom: spacing.md, gap: spacing.sm },
+  error: { color: colors.danger, fontSize: fonts.size.caption },
+  errorDetails: { color: colors.textMuted, fontSize: fonts.size.caption },
+  errorButtons: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 40, marginVertical: spacing.xl },
   skip: { padding: spacing.sm },
   disabled: { opacity: 0.35 },

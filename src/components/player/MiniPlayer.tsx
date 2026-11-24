@@ -17,6 +17,7 @@ const openPlayer = () => router.push('/player');
 export function MiniPlayer() {
   const entry = usePlayerState((s) => currentEntry(s));
   const nowPlaying = usePlayerState((s) => s.nowPlaying);
+  const error = usePlayerState((s) => s.error);
   const { position, duration } = useProgress(1);
 
   const swipeUp = useMemo(
@@ -56,8 +57,8 @@ export function MiniPlayer() {
           </Text>
           <View style={styles.subRow}>
             {badge ? <SourceBadge label={badge} /> : null}
-            <Text style={styles.sub} numberOfLines={1}>
-              {item.artist}
+            <Text style={[styles.sub, error && styles.subError]} numberOfLines={1}>
+              {error ? 'Nicht abspielbar – antippen für Details' : item.artist}
             </Text>
           </View>
         </View>
@@ -106,6 +107,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: fonts.size.md, fontWeight: fonts.weight.semibold },
   subRow: { flexDirection: 'row', alignItems: 'center', marginTop: 1 },
   sub: { color: colors.textMuted, fontSize: fonts.size.caption, flexShrink: 1 },
+  subError: { color: colors.danger },
   controls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   progressTrack: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, backgroundColor: colors.transparent },
   progressFill: { height: 2, backgroundColor: colors.accent },

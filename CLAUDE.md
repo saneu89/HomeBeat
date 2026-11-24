@@ -32,6 +32,7 @@ Kein eigener Server, keine Werbung, kein Login, keine Konten. Jedes Handy arbeit
 - `src/services/`: AggregatorService, StreamResolver, AudioPlayerService, DownloadService, RecommendationService, AutoService.
 - `src/database/`: expo-sqlite, Migrationen über `PRAGMA user_version` in `migrations.ts` (nur anhängen, nie bestehende Migrationen ändern).
 - Stream-URLs erst beim Abspielen holen (laufen ab), nur kurz zwischenspeichern.
+- **Fehlerverhalten beim Abspielen:** Kann ein Song über keine Quelle geladen werden, stoppt die Wiedergabe bei diesem Song. Nie automatisch zum nächsten Song springen, die Warteschlange im Fehlerfall nicht durcharbeiten. Stattdessen Fehlermeldung mit Details (Quelle/Client, Fehler bzw. HTTP-Status, versuchte Ausweichquellen) und die Knöpfe „Erneut versuchen“ und „Nächster Song“. Gilt auch im Hintergrund/auf dem Sperrbildschirm: dort pausieren und den Fehler in der Benachrichtigung zeigen. Autoplay greift nur nach einem regulär zu Ende gespielten Song, nie nach einem Fehler.
 - Spotify Web API wird **nicht** verwendet; Spotify-Daten nur über den offiziellen Datenexport (ZIP/JSON).
 - Kein Teilen von Playlists, keine Familien-Mitglieder, keine Einladungslinks.
 
@@ -71,6 +72,7 @@ npx eas-cli@latest build -p android --profile preview --local  # .apk lokal (Lin
 - Lizenz @rntp/player: frei nur für „Personal Use“ (private Person, nicht-kommerziell). HomeBeat (privat, kostenlos, Familie/Freunde) sollte darunter fallen – Entscheidung liegt beim Nutzer. Alternative wäre expo-audio (MIT, aber ohne Android Auto).
 - YouTube-Direktabruf: Auf dem Handy funktioniert YTMUSIC (Test 23.11.2026). Vom Entwicklungsrechner liefert YouTube LOGIN_REQUIRED (Bot-Schutz, IP-abhängig). Ohne PO-Token kann YouTube Streams jederzeit sperren → Ausweichwege wichtig.
 - Piped/Invidious (23.11.2026 geprüft): Die meisten Piped-Instanzen der offiziellen Liste sind offline oder selbst von YouTube gesperrt („LOGIN_REQUIRED“); api.invidious.io war vom Entwicklungsrechner nicht erreichbar. Der Ausweichweg ist eingebaut (dynamische Listen, kurze Zeitlimits), bringt derzeit aber wenig. Echte Ausweichquellen kommen in Phase 3 (JioSaavn, SoundCloud, Audius über Künstler-Titel-Abgleich).
+- Phase-2-Handytest (24.11.2026): Songs laden nicht („Beim Laden ist ein Fehler aufgetreten“). Testversion mit Fehlerprotokoll im Player (Client, Player-Fehler, HTTP-Status bei Byte 0 und ~1 MB) – Auswertung der Details steht aus. Der Phase-1-Test hatte nur die ersten 64 KB per JS-fetch geprüft, nicht die Wiedergabe über Media3.
 - Vollbild-Player: Download-Schalter (Phase 5), Liedtexte (Phase 7) und Autoplay-Schalter (Phase 7) fehlen noch bewusst.
 - @rntp/player-Cache ist aus: Der Media3-Cache verwendet die URL als Schlüssel, YouTube-URLs ändern sich aber bei jedem Abruf. Klären in Phase 6 („Cache-Größe“).
 - Benachrichtigungs-Symbol: Standard-Symbol von @rntp/player; eigenes Symbol (Config-Plugin mit Drawable) in Phase 9.

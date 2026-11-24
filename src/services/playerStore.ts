@@ -27,6 +27,8 @@ export interface PlayerState {
   loading: boolean;
   nowPlaying: NowPlayingInfo | null;
   error: string | null;
+  /** Protokoll aller Versuche für den fehlgeschlagenen Song (Quelle/Client, Fehler, HTTP-Status). */
+  errorDetails: string[];
   sleepTimer: SleepTimerChoice;
   playbackSpeed: number;
 }
@@ -37,6 +39,7 @@ const initial: PlayerState = {
   loading: false,
   nowPlaying: null,
   error: null,
+  errorDetails: [],
   sleepTimer: 'off',
   playbackSpeed: 1,
 };

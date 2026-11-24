@@ -10,6 +10,7 @@ import type { UnifiedItem } from '@/types/UnifiedItem';
 
 import { currentEntry, playerStore, type QueueEntry, type SleepTimerChoice } from './playerStore';
 import { StreamResolver, StreamUnavailableError, type ResolveResult } from './StreamResolver';
+import { fetchWithTimeout } from './streams/fetchUtils';
 import { toast } from './toastStore';
 
 /**
@@ -20,6 +21,8 @@ import { toast } from './toastStore';
  * aktuelle und der nächste Titel übergeben – jeweils mit frisch aufgelöster Stream-URL, weil
  * Stream-URLs ablaufen. Fällt ein Stream während der Wiedergabe aus, wird automatisch der
  * nächste Weg/die nächste Quelle genommen und an derselben Stelle weitergespielt.
+ * Klappt keine Quelle, stoppt die Wiedergabe bei diesem Song (kein automatischer Sprung zum
+ * nächsten Titel): Fehler mit Protokoll anzeigen, „Erneut versuchen“ / „Nächster Song“ anbieten.
  */
 
 const MAX_RECOVERIES_PER_ENTRY = 8;
@@ -30,8 +33,8 @@ const SPEECH_TYPES: ReadonlySet<UnifiedItem['type']> = new Set(['audiobook', 'po
 let uidCounter = 0;
 const newUid = () => `q${Date.now().toString(36)}${(uidCounter++).toString(36)}`;
 
-/** Pro Warteschlangen-Eintrag: fehlgeschlagene Wege und der zuletzt genutzte Weg. */
-const attempts = new Map<string, { exclude: Set<string>; lastKey?: string; recoveries: number }>();
+/** Pro Warteschlangen-Eintrag: fehlgeschlagene Wege, der zuletzt genutzte Weg und das Versuchsprotokoll. */
+const attempts = new Map<string, { exclude: Set<string>; lastKey?: string; recoveries: number; log: string[] }>();
 /** Aufgelöste Streams für den nativen Player, je uid. */
 const resolved = new Map<string, ResolveResult>();
 /** Läuft gerade eine Ladeoperation? Neuere Operationen machen ältere ungültig. */
@@ -41,7 +44,7 @@ let setupDone = false;
 function attemptState(uid: string) {
   let a = attempts.get(uid);
   if (!a) {
-    a = { exclude: new Set(), recoveries: 0 };
+    a = { exclude: new Set(), recoveries: 0, log: [] };
     attempts.set(uid, a);
   }
   return a;
@@ -65,7 +68,16 @@ function toMediaItem(entry: QueueEntry, result: ResolveResult): MediaItem {
 
 async function resolveEntry(entry: QueueEntry, token: number): Promise<ResolveResult | null> {
   const a = attemptState(entry.uid);
-  const result = await StreamResolver.resolve(entry.item, { exclude: a.exclude });
+  let result: ResolveResult;
+  try {
+    result = await StreamResolver.resolve(entry.item, { exclude: a.exclude });
+  } catch (e) {
+    a.log.push(...(e instanceof StreamUnavailableError ? e.failures : [errorText(e)]));
+    throw e;
+  }
+  a.log.push(...result.failures);
+  const s = result.stream;
+  a.log.push(`${result.attemptKey}: URL erhalten (${[s.via, s.mimeType, s.bitrateKbps && `${s.bitrateKbps} kbps`].filter(Boolean).join(', ')})`);
   if (token !== loadToken) return null;
   a.lastKey = result.attemptKey;
   resolved.set(entry.uid, result);
@@ -91,7 +103,7 @@ async function loadCurrent(options: { autoplay: boolean; startAt?: number }): Pr
   const s = playerStore.get();
   const entry = currentEntry(s);
   if (!entry) return;
-  playerStore.set({ loading: true, error: null });
+  playerStore.set({ loading: true, error: null, errorDetails: [] });
 
   // Abspielgeschwindigkeit nur bei Hörbüchern und Podcasts
   const speed = SPEECH_TYPES.has(entry.item.type) ? s.playbackSpeed : 1;
@@ -111,23 +123,56 @@ async function loadCurrent(options: { autoplay: boolean; startAt?: number }): Pr
     void prepareNext(token);
   } catch (e) {
     if (token !== loadToken) return;
-    const message =
-      e instanceof StreamUnavailableError
-        ? `„${entry.item.title}“ ist gerade nicht abspielbar.`
-        : e instanceof Error
-          ? e.message
-          : String(e);
-    toast.show(message);
-    playerStore.set({ loading: false, error: message });
-    // Nicht abspielbar → automatisch der nächste Titel (ohne Zutun des Nutzers)
-    const st = playerStore.get();
-    if (st.index + 1 < st.queue.length) {
-      playerStore.set({ index: st.index + 1 });
-      await loadCurrent({ autoplay: options.autoplay });
-      return;
-    }
-    TrackPlayer.stop();
+    failStop(
+      entry,
+      e instanceof StreamUnavailableError ? `„${entry.item.title}“ konnte über keine Quelle geladen werden.` : errorText(e),
+    );
   }
+}
+
+function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * Kein Weg hat funktioniert: Wiedergabe bei diesem Song anhalten – nie automatisch weiterspringen.
+ * Der Fehler erscheint im Player und (über die Titel-Metadaten) in der Benachrichtigung/auf dem Sperrbildschirm.
+ */
+function failStop(entry: QueueEntry, message: string) {
+  playerStore.set({ loading: false, error: message, errorDetails: [...attemptState(entry.uid).log] });
+  toast.show(message);
+  TrackPlayer.pause();
+  const active = TrackPlayer.getActiveMediaItemIndex();
+  if (active != null && TrackPlayer.getQueue().length > active) {
+    // Vorab geladenen nächsten Titel entfernen, damit nichts von selbst weiterläuft.
+    if (TrackPlayer.getQueue().length > active + 1) TrackPlayer.removeMediaItems(active + 1, TrackPlayer.getQueue().length);
+    TrackPlayer.updateMetadata(active, {
+      title: entry.item.title,
+      artist: 'Nicht abspielbar – in HomeBeat öffnen',
+      artworkUrl: entry.item.artworkUrl,
+    });
+  }
+}
+
+/** Prüfabruf nach einem Player-Fehler: HTTP-Status am Anfang und nach ca. 1 MB (YouTube sperrt teils erst später). */
+async function probeStream(result: ResolveResult): Promise<string> {
+  if (result.stream.isLocal) return 'lokale Datei';
+  const ranges = ['0-65535', '1048576-1114111'];
+  const parts = await Promise.all(
+    ranges.map(async (range) => {
+      try {
+        const res = await fetchWithTimeout(result.stream.url, {
+          headers: { ...result.stream.headers, Range: `bytes=${range}` },
+          timeoutMs: 6000,
+        });
+        res.body?.cancel().catch(() => undefined);
+        return `Bytes ${range}: HTTP ${res.status}`;
+      } catch (e) {
+        return `Bytes ${range}: ${errorText(e)}`;
+      }
+    }),
+  );
+  return parts.join(', ');
 }
 
 /** Löst den nächsten Titel vorab auf und hängt ihn an den nativen Player an (lückenloser Übergang). */
@@ -156,7 +201,7 @@ function onTransition(mediaId: string | undefined) {
   if (cur?.uid === mediaId) return;
   const idx = s.queue.findIndex((e) => e.uid === mediaId);
   if (idx < 0) return;
-  playerStore.set({ index: idx, error: null });
+  playerStore.set({ index: idx, error: null, errorDetails: [] });
   const entry = s.queue[idx];
   const result = resolved.get(entry.uid);
   if (result) publishNowPlaying(entry, result);
@@ -171,16 +216,19 @@ function onTransition(mediaId: string | undefined) {
 }
 
 /** Stream fiel während der Wiedergabe aus → nächster Weg/nächste Quelle, gleiche Stelle. */
-async function onPlaybackError(message: string) {
+async function onPlaybackError(code: string, message: string) {
   const entry = currentEntry();
   if (!entry) return;
   const a = attemptState(entry.uid);
+  const failed = resolved.get(entry.uid);
+  const probe = failed ? await probeStream(failed) : 'kein Stream bekannt';
+  a.log.push(`${a.lastKey ?? '?'}: Player-Fehler (${code}): ${message} – Prüfabruf: ${probe}`);
+  if (entry !== currentEntry()) return; // inzwischen anderer Titel gewählt
   if (a.lastKey) a.exclude.add(a.lastKey);
   StreamResolver.invalidate(entry.item.id);
   a.recoveries++;
   if (a.recoveries > MAX_RECOVERIES_PER_ENTRY) {
-    toast.show(`Wiedergabefehler bei „${entry.item.title}“ – nächster Titel.`);
-    return AudioPlayerService.next();
+    return failStop(entry, `Wiedergabefehler bei „${entry.item.title}“.`);
   }
   const position = TrackPlayer.getProgress().position;
   await loadCurrent({ autoplay: true, startAt: entry.item.isLive ? undefined : position });
@@ -218,7 +266,13 @@ export const AudioPlayerService = {
       capabilities: [PlayerCommand.PlayPause, PlayerCommand.Next, PlayerCommand.Previous, PlayerCommand.Seek, PlayerCommand.Stop],
     });
     TrackPlayer.registerRemoteHandlers({
+      // Nach einem Fehler hält der native Player evtl. noch den vorigen Titel – „Play“ heißt dann „Erneut versuchen“.
+      play: (cmd) => {
+        if (playerStore.get().error) return AudioPlayerService.retry();
+        cmd.performDefault();
+      },
       next: (cmd) => {
+        if (playerStore.get().error) return AudioPlayerService.next();
         const queue = TrackPlayer.getQueue();
         const active = TrackPlayer.getActiveMediaItemIndex() ?? 0;
         if (queue.length > active + 1) cmd.performDefault();
@@ -227,7 +281,7 @@ export const AudioPlayerService = {
       previous: () => AudioPlayerService.previous(),
     });
     TrackPlayer.addEventListener(Event.MediaItemTransition, (e) => onTransition(e.item?.mediaId));
-    TrackPlayer.addEventListener(Event.PlaybackError, (e) => onPlaybackError(e.message));
+    TrackPlayer.addEventListener(Event.PlaybackError, (e) => onPlaybackError(e.code, e.message));
     TrackPlayer.addEventListener(Event.PlaybackStateChanged, (e) => {
       if (e.state === PlaybackState.Ended) onEnded();
     });
@@ -271,8 +325,21 @@ export const AudioPlayerService = {
     if (index === s.index + 1) void prepareNext(++loadToken);
   },
 
+  /** „Erneut versuchen“: alle Wege für den aktuellen Song wieder freigeben und neu laden. */
+  async retry() {
+    const entry = currentEntry();
+    if (!entry) return;
+    attempts.delete(entry.uid);
+    StreamResolver.invalidate(entry.item.id);
+    await loadCurrent({ autoplay: true });
+  },
+
   togglePlayPause() {
     if (!currentEntry()) return;
+    if (playerStore.get().error) {
+      void AudioPlayerService.retry();
+      return;
+    }
     if (TrackPlayer.isPlaying()) TrackPlayer.pause();
     else {
       const state = TrackPlayer.getPlaybackState();
@@ -290,7 +357,7 @@ export const AudioPlayerService = {
     if (s.index + 1 >= s.queue.length) return;
     const queue = TrackPlayer.getQueue();
     const active = TrackPlayer.getActiveMediaItemIndex() ?? 0;
-    if (queue[active + 1]?.mediaId === s.queue[s.index + 1].uid) {
+    if (!s.error && queue[active + 1]?.mediaId === s.queue[s.index + 1].uid) {
       TrackPlayer.skipToNext(); // Übergang wird in onTransition verarbeitet
       return;
     }
