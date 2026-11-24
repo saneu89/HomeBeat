@@ -112,6 +112,11 @@ export default function PlayerScreen() {
           {qualityText}
         </Text>
       </View>
+      {info?.matched ? (
+        <Text style={styles.sourceText} numberOfLines={2}>
+          Gefunden: „{info.matched.title}“ – {info.matched.artist}
+        </Text>
+      ) : null}
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.error}>{error}</Text>

@@ -77,7 +77,7 @@ async function resolveEntry(entry: QueueEntry, token: number): Promise<ResolveRe
   }
   a.log.push(...result.failures);
   const s = result.stream;
-  a.log.push(`${result.attemptKey}: URL erhalten (${[s.via, s.mimeType, s.bitrateKbps && `${s.bitrateKbps} kbps`].filter(Boolean).join(', ')})`);
+  a.log.push(`${result.attemptKey}: URL erhalten (${[s.via, s.mimeType, s.bitrateKbps && `${s.bitrateKbps} kbps`].filter(Boolean).join(', ')})${result.playedItem.id !== entry.item.id ? ` – Treffer: „${result.playedItem.title}“ – ${result.playedItem.artist}` : ''}`);
   if (token !== loadToken) return null;
   a.lastKey = result.attemptKey;
   resolved.set(entry.uid, result);
@@ -93,6 +93,8 @@ function publishNowPlaying(entry: QueueEntry, result: ResolveResult) {
       bitrateKbps: result.stream.bitrateKbps,
       codec: result.stream.codec,
       isLocal: result.stream.isLocal,
+      // Ausweichquelle: tatsächlich gefundenen Eintrag zeigen, damit falsche Treffer auffallen.
+      matched: result.playedItem.id !== entry.item.id ? { title: result.playedItem.title, artist: result.playedItem.artist } : undefined,
     },
   });
 }

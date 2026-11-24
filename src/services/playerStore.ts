@@ -16,6 +16,8 @@ export interface NowPlayingInfo {
   bitrateKbps?: number;
   codec?: string;
   isLocal: boolean;
+  /** Gesetzt, wenn eine Ausweichquelle einen anderen Eintrag spielt (Künstler-Titel-Abgleich). */
+  matched?: { title: string; artist: string };
 }
 
 export type SleepTimerChoice = 'off' | 15 | 30 | 60 | 'endOfTrack';

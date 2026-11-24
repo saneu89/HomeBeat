@@ -50,37 +50,46 @@ export interface MatchTarget {
   isrc?: string;
 }
 
+/** Abwandlungen eines Songs – nur erlaubt, wenn der gesuchte Titel das Wort selbst enthält. */
+const VARIANT_WORDS = ['slowed', 'reverb', 'sped', 'nightcore', 'remix', 'cover', 'karaoke', 'instrumental', 'live', 'edit', '8d'];
+
+/** Variantenwörter im Rohtext (vor normalizeText, das z. B. Klammern mit „version“ entfernt). */
+function variantWords(s: string): Set<string> {
+  const words = new Set(s.toLowerCase().split(/[^a-z0-9]+/));
+  return new Set(VARIANT_WORDS.filter((w) => words.has(w)));
+}
+
 /**
  * Bewertet, wie gut `candidate` zum gesuchten Song passt (0..1, < 0 = ausgeschlossen).
- * Regeln (Abschnitt 2): Dauer ±5 s, falls bekannt; sonst Album-Abgleich und offizielle Aufnahme bevorzugen.
+ * Streng (lieber „nicht gefunden“ als ein falscher Song):
+ * - Dauer muss auf beiden Seiten bekannt sein und auf ±5 s passen.
+ * - Künstler muss passen (im Künstlerfeld, nicht nur irgendwo im Titel).
+ * - Varianten (slowed, remix, live …) nur, wenn der gesuchte Titel das Wort selbst enthält.
  */
 export function matchScore(target: MatchTarget, candidate: UnifiedItem): number {
   if (candidate.type !== 'track') return -1;
+  if (!target.durationSec || !candidate.durationSec) return -1;
+  if (Math.abs(target.durationSec - candidate.durationSec) > 5) return -1;
   if (target.isrc && candidate.isrc) return target.isrc === candidate.isrc ? 1 : -1;
 
-  const hasDurations = !!target.durationSec && !!candidate.durationSec;
-  if (hasDurations && Math.abs(target.durationSec! - candidate.durationSec!) > 5) return -1;
+  const wanted = variantWords(target.title);
+  for (const w of variantWords(candidate.title)) if (!wanted.has(w)) return -1;
+
+  const tArtist = primaryArtist(target.artist);
+  const cArtist = normalizeText(candidate.artist);
+  if (!tArtist || !cArtist) return -1;
+  const artistOk = ` ${cArtist} `.includes(` ${tArtist} `) || similarity(tArtist, primaryArtist(candidate.artist)) >= 0.8;
+  if (!artistOk) return -1;
 
   const tTitle = normalizeText(target.title);
   const cTitle = normalizeText(candidate.title);
-  const tArtist = primaryArtist(target.artist);
-  const cArtistFull = normalizeText(candidate.artist);
+  // Bei Videos steht der Künstler oft zusätzlich im Titel („Künstler - Titel“).
+  const titleSim = Math.max(similarity(tTitle, cTitle), similarity(tTitle, cTitle.replace(tArtist, '').trim()));
+  if (titleSim < 0.7) return -1;
 
-  // Bei Videos steht der Künstler oft im Titel („Künstler - Titel“).
-  const titleSim = Math.max(similarity(tTitle, cTitle), similarity(`${tArtist} ${tTitle}`, cTitle));
-  const artistSim = cArtistFull.includes(tArtist) || tArtist.includes(cArtistFull) ? 1 : similarity(tArtist, cArtistFull);
-  if (titleSim < 0.5 || (artistSim < 0.3 && !cTitle.includes(tArtist))) return -1;
-
-  let score = titleSim * 0.55 + Math.max(artistSim, cTitle.includes(tArtist) ? 0.8 : 0) * 0.3;
-  if (hasDurations) score += 0.1;
-  else {
-    if (target.album && candidate.album && similarity(normalizeText(target.album), normalizeText(candidate.album)) >= 0.6) score += 0.08;
-    if (candidate.isOfficial) score += 0.07;
-  }
-  if (candidate.isOfficial && hasDurations) score += 0.03;
-  // Live-/Remix-Versionen nur, wenn auch gesucht
-  const variant = /\b(live|remix|cover|karaoke|instrumental|slowed|reverb|sped up|nightcore|8d)\b/;
-  if (variant.test(cTitle) && !variant.test(tTitle)) score -= 0.3;
+  let score = 0.6 + titleSim * 0.3;
+  if (candidate.isOfficial) score += 0.05;
+  if (target.album && candidate.album && similarity(normalizeText(target.album), normalizeText(candidate.album)) >= 0.6) score += 0.05;
   return score;
 }
 
