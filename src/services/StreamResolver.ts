@@ -14,7 +14,7 @@ import type { ResolvedStream, StreamAttempt, StreamQuality } from './streams/typ
  *   → gleicher Song bei anderen Quellen („Künstler – Titel“ mit Dauer-Abgleich ±5 s) in der
  *   Reihenfolge YouTube Music, JioSaavn, SoundCloud, Audius → zuletzt Invidious/Piped (langsam,
  *   meist offline – stünden sie vorne, käme die Ausweichquelle erst nach bis zu ~50 s).
- * - Jede URL wird vor der Übergabe an den Player ab ~1 MB probegelesen (YouTube ohne PO-Token: 403).
+ * - Jede URL wird vor der Übergabe an den Player ab 2 MB probegelesen (YouTube ohne PO-Token: 403).
  * - Fehlgeschlagene Wege werden über `exclude` übersprungen, damit der Player bei einem Fehler
  *   automatisch den nächsten Weg nimmt.
  */

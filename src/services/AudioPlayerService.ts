@@ -156,10 +156,10 @@ function failStop(entry: QueueEntry, message: string) {
   }
 }
 
-/** Prüfabruf nach einem Player-Fehler: HTTP-Status am Anfang und nach ca. 1 MB (YouTube sperrt teils erst später). */
+/** Prüfabruf nach einem Player-Fehler: HTTP-Status am Anfang, bei 1 MB und bei 2,5 MB (YouTube sperrt ab ~1 MB). */
 async function probeStream(result: ResolveResult): Promise<string> {
   if (result.stream.isLocal) return 'lokale Datei';
-  const ranges = ['0-65535', '1048576-1114111'];
+  const ranges = ['0-65535', '1048576-1114111', '2500000-2565535'];
   const parts = await Promise.all(
     ranges.map(async (range) => {
       try {

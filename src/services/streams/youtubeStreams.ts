@@ -32,7 +32,19 @@ async function resolveWithClient(
 ): Promise<ResolvedStream> {
   const yt = await getInnertube();
   signal?.throwIfAborted();
-  const info = client === 'YTMUSIC' ? await yt.music.getInfo(videoId) : await yt.getBasicInfo(videoId, { client });
+  // YTMUSIC braucht den PO-Token in der Player-Anfrage UND als &pot= an der URL (nur &pot= → 403 ab ~1 MB; geprüft 25.11.2026).
+  let poToken: string | undefined;
+  if (client === 'YTMUSIC') {
+    try {
+      poToken = await getPoToken(videoId);
+    } catch (e) {
+      throw new Error(`YouTube (${client}): kein PO-Token – ${e instanceof Error ? e.message : String(e)}`);
+    }
+    signal?.throwIfAborted();
+  }
+  const info = poToken
+    ? await yt.music.getInfo(videoId, { po_token: poToken })
+    : await yt.getBasicInfo(videoId, { client });
   signal?.throwIfAborted();
 
   const status = info.playability_status;
@@ -65,14 +77,7 @@ async function resolveWithClient(
 
   let url = await chosen.format.decipher(yt.session.player);
   if (!url) throw new Error(`YouTube (${client}): Stream-URL konnte nicht entschlüsselt werden`);
-  if (client === 'YTMUSIC') {
-    // Ohne PO-Token liefert YouTube nur ~1 MB (danach HTTP 403) – dann gar nicht erst versuchen.
-    try {
-      url += `&pot=${encodeURIComponent(await getPoToken(videoId))}`;
-    } catch (e) {
-      throw new Error(`YouTube (${client}): kein PO-Token – ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
+  if (poToken) url += `&pot=${encodeURIComponent(poToken)}`;
 
   const expires = sd.expires instanceof Date ? sd.expires.getTime() - 60_000 : Date.now() + MAX_TTL_MS;
   return {
