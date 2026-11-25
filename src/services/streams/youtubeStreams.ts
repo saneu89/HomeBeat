@@ -3,6 +3,7 @@ import { Constants, type Types } from 'youtubei.js';
 import { getInnertube } from '@/services/youtube/innertube';
 import { getPoToken } from '@/services/youtube/poToken';
 
+import { assertStreamReadable } from './fetchUtils';
 import { pickFormat, splitMime } from './quality';
 import type { ResolvedStream, StreamAttempt, StreamQuality } from './types';
 
@@ -77,7 +78,16 @@ async function resolveWithClient(
 
   let url = await chosen.format.decipher(yt.session.player);
   if (!url) throw new Error(`YouTube (${client}): Stream-URL konnte nicht entschlüsselt werden`);
-  if (poToken) url += `&pot=${encodeURIComponent(poToken)}`;
+  if (poToken) {
+    url += `&pot=${encodeURIComponent(poToken)}`;
+    // Diagnose: Token ins Protokoll, damit er sich außerhalb des Handys gegenprüfen lässt (an die Video-ID gebunden, kurzlebig).
+    try {
+      await assertStreamReadable(url, { 'User-Agent': userAgentFor(client) }, signal);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`${msg} (Video ${videoId}, itag ${chosen.format.itag}, PO-Token ${poToken.length} Zeichen: ${poToken})`);
+    }
+  }
 
   const expires = sd.expires instanceof Date ? sd.expires.getTime() - 60_000 : Date.now() + MAX_TTL_MS;
   return {
